@@ -1,0 +1,167 @@
+class Regla{
+    public static final int AGENT_VISIO = 10;
+    public static final int AGENT_METABOLISME = 4;
+    public static final int AGENT_EDAT_MAXIMA_DEFUNCIO = 100;
+    public static final int AGENT_EDAT_MINIMA_DEFUNCIO = 60;
+    public static SugarSpace sp;
+    public static final int POBLACIO_INICIAL = 350;
+    public static final int FILES = 50;
+    public static final int COLS = 50;
+    public static final int ESCALA = 10;
+
+    public static int COL_INICI = 0;
+    public static int COL_FINAL = Regla.FILES;
+    public static int FIL_INICI = 0;
+    public static int FIL_FINAL = Regla.COLS;
+
+    /*Regles de reposió del sucre*/
+    public static final int EMISFERI_NORD = 1;
+    public static final int EMISFERI_SUD = 2;
+    public static final int HIVERN = 1;
+    public static final int ESTIUD = 2;
+    public static final int DURADA_DE_LES_ESTACIONS = 50;
+    public static final color COLOR_EMISFERI_NORD = #3F6CAC;
+    public static final color COLOR_EMISFERI_SUD = #208323;
+    public static final color COLOR_SENSE_EMISFERI = #CAC8EB;
+
+    public static final int Goo_REPOSA_ALIMENT_AL_MOMENT = 1;
+    public static final int G1_REPOSA_ALIMENT_UN_A_UN = 2;
+    public static final int Saby_REPOSA_ALIMENT_AMB_ESTACIONS = 3;
+
+    public static final int R_NO_REPOSA_AGENTS_ELIMINATS = 0;
+    public static final int R_REPOSA_AGENTS_ELIMINATS = 1;
+    public static final int POSA_AGENTS_ALEATORIAMENT = 1;
+    public static final int POSA_AGENTS_ALEATORIAMENT_EN_ZONA = 2;
+
+    /**
+    * Reposa el sucre immediatament
+    */
+    public static void Goo_reposaAliment(){
+        for(int fila=0; fila<sp.files;fila++){
+            for(int col=0; col<sp.cols;col++){
+                if(sp.planeta.territori[fila][col].capacitat > sp.planeta.territori[fila][col].nivell){
+                    sp.planeta.territori[fila][col].nivell = sp.planeta.territori[fila][col].capacitat;
+                }
+            }
+        }
+    }
+
+    /**
+    * Reposa el sucre a ritme d'un nivell per període
+    */
+    public static void G1_reposaAliment(){
+        for(int fila=0; fila<sp.files;fila++){
+            for(int col=0; col<sp.cols;col++){
+                if(sp.planeta.territori[fila][col].capacitat > sp.planeta.territori[fila][col].nivell){
+                    sp.planeta.territori[fila][col].nivell++;
+                }
+            }
+        }
+    }
+
+    /**
+    * Reposa el sucre en el emisferi Nord
+    */
+    public static void Saby_reposaAlimentEmisferi(int emisferi){
+        int p_fila = 0;
+        int u_fila = sp.files/2;
+        int augment = 0;
+        switch(emisferi){
+           case Regla.EMISFERI_NORD:
+                p_fila = 0;
+                u_fila = sp.files/2;
+                augment = (sp.planeta.emisferi_nord == Regla.HIVERN && sp.temps % 8 == 0 || sp.planeta.emisferi_nord == Regla.ESTIU) ? 1 : 0;
+                break;
+           case Regla.EMISFERI_SUD:
+                p_fila = sp.files/2;
+                u_fila = sp.files;
+                augment = (sp.planeta.emisferi_sud == Regla.HIVERN && sp.temps % 8 == 0 || sp.planeta.emisferi_sud == Regla.ESTIU) ? 1 : 0;
+                break;
+        }
+        int p_col = 0;
+        int u_col = sp.cols;
+        for(int fila = p_fila; fila < u_fila;fila++){
+            for(int col = 0; col < sp.cols; col++){   
+                sp.planeta.territori[col][fila].creix(augment);
+            }
+        }
+    }
+
+    /**
+    * Regla reposa el nombre d'Agents especificats en el paràmetre
+    */
+    public static void R_reposaAgents(int num/* int col_inici, int col_final, int fil_inici, int fil_final*/){
+        //Mentre el nombre de colocats sigui inferior a num
+        int col_inici= sp.config.zi_col_inicial; 
+        int col_final= sp.config.zi_col_final;
+        int fil_inici = sp.config.zi_fila_inicial;
+        int fil_final = sp.config.zi_fila_final;
+        for(int colocats = 0;colocats<num;){
+            int fila = (int) random(col_inici, col_final);
+            int col = (int) random(fil_inici, fil_final);
+            //int fila = (int) random(0, sp.files/2);
+            //int col = (int) random(sp.cols/2, sp.cols);
+            //Si la posició està lliure
+            if(!sp.planeta.getAt(fila, col).isOcupat()){
+                //Creem un nou agent localitzat en fila col
+                agent = Factory.getAgent(fila, col, Regla.ESCALA);
+                //Afegim l'agent a la població
+                sp.poblacio.add(agent);
+                //Col·loquem l'agent en el territoti
+               sp.planeta.setAgentAt(fila, col, agent);
+                colocats++;
+            }
+        }
+    }
+
+    /**
+    * Regla de moviment del Agent
+    */
+    public static PVector R_Moviment_del_Agent(Agent agent){
+       Hectarea candidat = null;
+       int pd = (int) random(0, 4);//Primera direcció aleatòria
+       String msg = toString()+"<br>Posicions observades:"+str(pd)+"<br> ";
+       for(int v=1;v <= agent.visio;v++){
+         for(int j=pd;j<(pd+4);j++){//direccio
+             //Si la cel·la està lliure
+                //Color per marcar les posicions lliures durant el desenvolupament
+                fill(115);
+                Hectarea explorada;
+                //Obtenim la direcció del desplaçament
+                PVector dir = PVector.add(Agent.direccions[j%4], agent.location);
+                //PVector dir = PVector.add(Agent.direccions[0], agent.location);
+                //Sumem la distancia corresponent a la visió
+                PVector distancia;
+                for(int k=1;k<v;k++){
+                   dir = PVector.add(Agent.direccions[j%4], dir);
+                }
+                //Corregim la posició d'acord amb els límits del territori
+                dir.y = dir.y >= Agent.model.files ? (dir.y-Agent.model.files): dir.y;
+                dir.y = dir.y <= -1 ? (Agent.model.files+dir.y) : dir.y;
+                dir.x = dir.x >= Agent.model.cols ? (dir.x- Agent.model.cols):dir.x;
+                dir.x = dir.x <= -1 ? (Agent.model.cols+dir.x) : dir.x;
+                //rect((dir.y)*escala, (dir.x)*escala, escala, escala);
+                msg += "("+dir.y+","+dir.x+") ";
+                //Obtenim la referència a la posició explorada
+                explorada = Agent.model.getTerritori()[(int)dir.y][(int)dir.x];
+                //Si la posició no està ocupada
+                if(!explorada.isOcupat()){
+                    //Si el candidat al desplaçament té un nivell inferior al explorat
+                    if(candidat == null || candidat.checkNivell() < explorada.checkNivell()){
+                        //actualitzem el candidat
+                        candidat = explorada;
+                    }
+                    //Marquem la posició en el mode de desenvolupament
+                    //rect((dir.y)*escala, (dir.x)*escala, escala, escala);
+                    //msg += "Lliure "+explorada.nivell+"<br>";
+                }              
+             }
+          }
+          fill(100,145,45);
+          //rect((candidat.location.y)*escala, (candidat.location.x)*escala, escala, escala)
+          if(candidat==null) return null;
+          msg += "<br>Escollit: "+candidat.toString();
+          //javascript.actualitzaLabel("monitor_agent","Mirant: "+msg);//+(location.x)+" "+(location.y)+" "+msg);
+          return candidat.location;
+    }
+}
